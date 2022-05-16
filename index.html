@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ASO MF Dijital Kalite Kontrol</title>
+    <link href="assets/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11.4.14/dist/sweetalert2.min.css" rel="stylesheet">
+</head>
+<body>
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="d-flex align-items-center" style="height: 80vh;">
+            <div class="col-md-6 mx-auto">
+                <div class="card">
+                    <div class="card-body">
+                        <h4 class="text-center">Ankara Model Fabrika - Dijital Kalite Kontrol</h4>
+                        <div class="row mb-3" id="controlBtn">
+                            <div class="col-6 mt-4 mx-auto"><button type="button" onclick="init()" class="btn btn-lg btn-danger w-100">Başlat</button></div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-12 text-center">
+                                <div id="webcam-container"></div>
+                                <div id="label-container" class="d-none"></div>
+                            </div>
+                        </div>
+                        <div class="row mb-3 d-none" id="setControl">
+                            <div class="col-6 mt-4 mx-auto"><button type="button" class="btn btn-lg btn-info w-100" onclick="controlShowBtn(this);">Kontrol Et</button></div>
+                        </div>
+
+                        <div id="sContainer" class="d-none"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<script type="text/javascript" src="assets/js/jquery-3.6.0.min.js"></script>
+<script type="text/javascript" src="assets/js/jquery-migrate-1.4.1.min.js"></script>
+<script type="text/javascript" src="assets/js/bootstrap.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/sweetalert2@11.4.14/dist/sweetalert2.all.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8/dist/teachablemachine-image.min.js"></script>
+
+<script type="text/javascript">
+    // More API functions here:
+    // https://github.com/googlecreativelab/teachablemachine-community/tree/master/libraries/image
+
+    // the link to your model provided by Teachable Machine export panel
+    const URL = "./model/";
+
+    let model, webcam, labelContainer, maxPredictions;
+
+    // Load the image model and setup the webcam
+    async function init() {
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+
+        let controlBtn = $("#controlBtn"), setControl = $("#setControl"), webcamContainer = $("#webcam-container");
+
+        controlBtn.addClass("d-none");
+        webcamContainer.html('<div class="row"><div class="container text-center"><img src="./assets/svg/hourglass.svg" alt="loader" /><br><h4>Yükleniyor. Lütfen bekleyin.</h4></div></div>');
+
+        // load the model and metadata
+        // Refer to tmImage.loadFromFiles() in the API to support files from a file picker
+        // or files from your local hard drive
+        // Note: the pose library adds "tmImage" object to your window (window.tmImage)
+        model = await tmImage.load(modelURL, metadataURL);
+        maxPredictions = model.getTotalClasses();
+
+        // Convenience function to setup a webcam
+        const flip = true; // whether to flip the webcam
+        webcam = new tmImage.Webcam(200, 200, flip); // width, height, flip
+        await webcam.setup(); // request access to the webcam
+        await webcam.play();
+
+        webcamContainer.html('');
+
+        window.requestAnimationFrame(loop);
+
+        setControl.removeClass("d-none");
+
+        // append elements to the DOM
+        document.getElementById("webcam-container").appendChild(webcam.canvas);
+        labelContainer = document.getElementById("label-container");
+
+        for (let i = 0; i < maxPredictions; i++) { // and class labels
+            labelContainer.appendChild(document.createElement("div"));
+        }
+    }
+
+    async function loop() {
+        webcam.update(); // update the webcam frame
+        await predict();
+        window.requestAnimationFrame(loop);
+    }
+
+    // run the webcam image through the image model
+    async function predict() {
+        // predict can take in an image, video or canvas html element
+        const prediction = await model.predict(webcam.canvas);
+        var newPrediction = [], newPredictionName = [];
+        for (let i = 0; i < maxPredictions; i++) {
+            const classPrediction =
+                prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+            labelContainer.childNodes[i].innerHTML = classPrediction;
+        }
+
+        for (let i = 0; i < maxPredictions; i++) {
+            newPrediction[i] = parseFloat(prediction[i].probability.toFixed(2));
+        }
+
+        let b = Math.max(...newPrediction);
+        const index = newPrediction.indexOf(b);
+        // console.log(b, index + prediction[index].className);
+
+        $("#sContainer").html(b + "||" + prediction[index].className);
+
+    }
+
+    async function controlShowBtn(){
+        var oContainer = $("#sContainer").html();
+        var iSpl = oContainer.split("||");
+
+        Swal.fire({
+            icon: 'success',
+            title: 'Bilgilendirme',
+            html: 'Sonuç: %' + (parseFloat(iSpl[0]) * 100) + '<br>' + iSpl[1],
+            footer: '<a href="">-</a>'
+        });
+    }
+</script>
+</body>
+</html>
